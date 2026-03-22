@@ -1,22 +1,13 @@
-const reset = "\u{001b}[0m"
-
 const bold_code = "\u{001b}[1m"
-
-const dim_code = "\u{001b}[2m"
-
-const italic_code = "\u{001b}[3m"
-
 const cyan_code = "\u{001b}[36m"
-
-const yellow_code = "\u{001b}[33m"
-
-const red_code = "\u{001b}[31m"
-
-const green_code = "\u{001b}[32m"
-
-const magenta_code = "\u{001b}[35m"
-
+const dim_code = "\u{001b}[2m"
 const gray_code = "\u{001b}[90m"
+const green_code = "\u{001b}[32m"
+const italic_code = "\u{001b}[3m"
+const magenta_code = "\u{001b}[35m"
+const red_code = "\u{001b}[31m"
+const reset = "\u{001b}[0m"
+const yellow_code = "\u{001b}[33m"
 
 pub fn bold(text: String) -> String {
   bold_code <> text <> reset

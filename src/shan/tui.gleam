@@ -93,6 +93,11 @@ fn tui_render() -> loop.Render {
             Ok(path) -> " " <> path
             Error(_) -> ""
           }
+        "bash" ->
+          case dict.get(input, "command") {
+            Ok(command) -> " " <> command
+            Error(_) -> ""
+          }
         _ -> ""
       }
       io.println(
