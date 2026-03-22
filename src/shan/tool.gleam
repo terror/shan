@@ -10,6 +10,7 @@ pub type ToolResult {
 pub fn execute(name: String, input: Dict(String, String)) -> ToolResult {
   case name {
     "read_file" -> execute_read_file(input)
+    "write_file" -> execute_write_file(input)
     "bash" -> execute_bash(input)
     _ -> ToolResult(content: "unknown tool: " <> name, is_error: True)
   }
@@ -28,6 +29,24 @@ fn execute_read_file(input: Dict(String, String)) -> ToolResult {
   }
 }
 
+fn execute_write_file(input: Dict(String, String)) -> ToolResult {
+  case dict.get(input, "path"), dict.get(input, "content") {
+    Error(_), _ ->
+      ToolResult(content: "missing required parameter: path", is_error: True)
+    _, Error(_) ->
+      ToolResult(content: "missing required parameter: content", is_error: True)
+    Ok(path), Ok(content) ->
+      case simplifile.write(path, content) {
+        Ok(_) -> ToolResult(content: "wrote " <> path, is_error: False)
+        Error(_) ->
+          ToolResult(
+            content: "failed to write file: " <> path,
+            is_error: True,
+          )
+      }
+  }
+}
+
 fn execute_bash(input: Dict(String, String)) -> ToolResult {
   case dict.get(input, "command") {
     Error(_) ->
@@ -41,7 +60,7 @@ fn execute_bash(input: Dict(String, String)) -> ToolResult {
 }
 
 pub fn definitions() -> List(json.Json) {
-  [read_file_definition(), bash_definition()]
+  [read_file_definition(), write_file_definition(), bash_definition()]
 }
 
 fn read_file_definition() -> json.Json {
@@ -73,6 +92,56 @@ fn read_file_definition() -> json.Json {
           ]),
         ),
         #("required", json.preprocessed_array([json.string("path")])),
+      ]),
+    ),
+  ])
+}
+
+fn write_file_definition() -> json.Json {
+  json.object([
+    #("name", json.string("write_file")),
+    #(
+      "description",
+      json.string(
+        "Write content to a file at the given path. Creates the file if it doesn't exist, overwrites if it does.",
+      ),
+    ),
+    #(
+      "input_schema",
+      json.object([
+        #("type", json.string("object")),
+        #(
+          "properties",
+          json.object([
+            #(
+              "path",
+              json.object([
+                #("type", json.string("string")),
+                #(
+                  "description",
+                  json.string("The absolute path to the file to write"),
+                ),
+              ]),
+            ),
+            #(
+              "content",
+              json.object([
+                #("type", json.string("string")),
+                #(
+                  "description",
+                  json.string("The content to write to the file"),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+        #(
+          "required",
+          json.preprocessed_array([
+            json.string("path"),
+            json.string("content"),
+          ]),
+        ),
       ]),
     ),
   ])
