@@ -110,7 +110,7 @@ fn tui_render() -> loop.Render {
           )
         False ->
           case name {
-            "bash" ->
+            "bash" | "read_file" ->
               result.content
               |> truncate_lines(5)
               |> string.split("\n")
