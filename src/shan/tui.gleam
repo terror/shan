@@ -88,7 +88,7 @@ fn tui_render() -> loop.Render {
     },
     on_tool_start: fn(name, input) {
       let detail = case name {
-        "read_file" | "write_file" ->
+        "read_file" | "write_file" | "list_files" ->
           case dict.get(input, "path") {
             Ok(path) -> " " <> path
             Error(_) -> ""
@@ -110,7 +110,7 @@ fn tui_render() -> loop.Render {
           )
         False ->
           case name {
-            "bash" | "read_file" | "write_file" ->
+            "bash" | "read_file" | "write_file" | "list_files" ->
               result.content
               |> truncate_lines(5)
               |> string.split("\n")

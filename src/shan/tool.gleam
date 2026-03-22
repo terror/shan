@@ -1,5 +1,7 @@
 import gleam/dict.{type Dict}
 import gleam/json
+import gleam/list
+import gleam/string
 import shellout
 import simplifile
 
@@ -11,6 +13,7 @@ pub fn execute(name: String, input: Dict(String, String)) -> ToolResult {
   case name {
     "read_file" -> execute_read_file(input)
     "write_file" -> execute_write_file(input)
+    "list_files" -> execute_list_files(input)
     "bash" -> execute_bash(input)
     _ -> ToolResult(content: "unknown tool: " <> name, is_error: True)
   }
@@ -39,8 +42,25 @@ fn execute_write_file(input: Dict(String, String)) -> ToolResult {
       case simplifile.write(path, content) {
         Ok(_) -> ToolResult(content: "wrote " <> path, is_error: False)
         Error(_) ->
+          ToolResult(content: "failed to write file: " <> path, is_error: True)
+      }
+  }
+}
+
+fn execute_list_files(input: Dict(String, String)) -> ToolResult {
+  case dict.get(input, "path") {
+    Error(_) ->
+      ToolResult(content: "missing required parameter: path", is_error: True)
+    Ok(path) ->
+      case simplifile.get_files(path) {
+        Ok(files) ->
           ToolResult(
-            content: "failed to write file: " <> path,
+            content: files |> list.sort(string.compare) |> string.join("\n"),
+            is_error: False,
+          )
+        Error(_) ->
+          ToolResult(
+            content: "failed to list files in: " <> path,
             is_error: True,
           )
       }
@@ -60,7 +80,12 @@ fn execute_bash(input: Dict(String, String)) -> ToolResult {
 }
 
 pub fn definitions() -> List(json.Json) {
-  [read_file_definition(), write_file_definition(), bash_definition()]
+  [
+    read_file_definition(),
+    write_file_definition(),
+    list_files_definition(),
+    bash_definition(),
+  ]
 }
 
 fn read_file_definition() -> json.Json {
@@ -142,6 +167,40 @@ fn write_file_definition() -> json.Json {
             json.string("content"),
           ]),
         ),
+      ]),
+    ),
+  ])
+}
+
+fn list_files_definition() -> json.Json {
+  json.object([
+    #("name", json.string("list_files")),
+    #(
+      "description",
+      json.string(
+        "Recursively list all files in a directory. Returns one file path per line, sorted alphabetically.",
+      ),
+    ),
+    #(
+      "input_schema",
+      json.object([
+        #("type", json.string("object")),
+        #(
+          "properties",
+          json.object([
+            #(
+              "path",
+              json.object([
+                #("type", json.string("string")),
+                #(
+                  "description",
+                  json.string("The absolute path to the directory to list"),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+        #("required", json.preprocessed_array([json.string("path")])),
       ]),
     ),
   ])
