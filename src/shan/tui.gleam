@@ -131,17 +131,11 @@ fn tui_render() -> loop.Render {
   )
 }
 
+const version = "0.1.0"
+
 fn print_header() -> Nil {
-  let bc = "\u{001b}[1;36m"
-  let dm = "\u{001b}[2m"
-  let rs = "\u{001b}[0m"
   io.println("")
-  io.println(bc <> "  ╭─────────────────────────────╮" <> rs)
-  io.println(bc <> "  │         shan v1.0.0         │" <> rs)
-  io.println(
-    bc <> "  │" <> dm <> "    coding agent · gleam     " <> bc <> "│" <> rs,
-  )
-  io.println(bc <> "  ╰─────────────────────────────╯" <> rs)
+  io.println("  " <> ansi.bold_cyan("shan") <> " " <> ansi.dim(version))
   io.println("")
 }
 
