@@ -1,3 +1,4 @@
+import gleam/dict
 import gleam/int
 import gleam/io
 import gleam/list
@@ -85,8 +86,18 @@ fn tui_render() -> loop.Render {
       |> list.each(fn(line) { io.println("  " <> ansi.dim(line)) })
       io.println("")
     },
-    on_tool_start: fn(name) {
-      io.println("  " <> ansi.yellow("●") <> " " <> ansi.dim(name))
+    on_tool_start: fn(name, input) {
+      let detail = case name {
+        "read_file" ->
+          case dict.get(input, "path") {
+            Ok(path) -> " " <> path
+            Error(_) -> ""
+          }
+        _ -> ""
+      }
+      io.println(
+        "  " <> ansi.yellow("●") <> " " <> ansi.dim(name <> detail),
+      )
     },
     on_tool_done: fn(_name, result) {
       case result.is_error {

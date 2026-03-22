@@ -1,3 +1,4 @@
+import gleam/dict.{type Dict}
 import gleam/io
 import gleam/list
 import shan/message.{
@@ -16,7 +17,7 @@ pub type Render {
   Render(
     on_text: fn(String) -> Nil,
     on_thinking: fn(String) -> Nil,
-    on_tool_start: fn(String) -> Nil,
+    on_tool_start: fn(String, Dict(String, String)) -> Nil,
     on_tool_done: fn(String, tool.ToolResult) -> Nil,
     on_usage: fn(Int, Int) -> Nil,
   )
@@ -26,7 +27,7 @@ pub fn default_render() -> Render {
   Render(
     on_text: fn(text) { io.println(text) },
     on_thinking: fn(text) { io.println("[thinking] " <> text) },
-    on_tool_start: fn(name) { io.println("[calling " <> name <> "]") },
+    on_tool_start: fn(name, _input) { io.println("[calling " <> name <> "]") },
     on_tool_done: fn(_name, _result) { Nil },
     on_usage: fn(_in, _out) { Nil },
   )
@@ -86,7 +87,7 @@ fn execute_tools(content: List(Content), render: Render) -> List(Content) {
   |> list.map(fn(c) {
     case c {
       ToolUse(id:, name:, input:) -> {
-        { render.on_tool_start }(name)
+        { render.on_tool_start }(name, input)
         let result = tool.execute(name, input)
         { render.on_tool_done }(name, result)
         ToolResult(id:, content: result.content, is_error: result.is_error)
