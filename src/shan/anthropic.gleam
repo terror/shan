@@ -1,28 +1,33 @@
 import gleam/json
 import gleam/list
 import shan/message.{type Message, type Response}
-
-pub type ApiError {
-  RequestError(String)
-  HttpError(status: Int, body: String)
-  DecodeError(String)
-}
+import shan/provider.{type Provider}
 
 pub type Auth {
   ApiKey(String)
   OAuthToken(String)
 }
 
-pub type Config {
-  Config(auth: Auth, model: String, max_tokens: Int, system: String)
+pub fn provider(
+  auth: Auth,
+  model: String,
+  max_tokens: Int,
+  system: String,
+) -> Provider {
+  fn(messages: List(Message), tools: List(json.Json)) {
+    send(auth, model, max_tokens, system, messages, tools)
+  }
 }
 
-pub fn send(
-  config: Config,
+fn send(
+  auth: Auth,
+  model: String,
+  max_tokens: Int,
+  system: String,
   messages: List(Message),
   tools: List(json.Json),
-) -> Result(Response, ApiError) {
-  let system_value = case config.auth {
+) -> Result(Response, provider.SendError) {
+  let system_value = case auth {
     OAuthToken(_) ->
       json.preprocessed_array([
         json.object([
@@ -36,16 +41,16 @@ pub fn send(
         ]),
         json.object([
           #("type", json.string("text")),
-          #("text", json.string(config.system)),
+          #("text", json.string(system)),
         ]),
       ])
-    ApiKey(_) -> json.string(config.system)
+    ApiKey(_) -> json.string(system)
   }
 
   let body =
     json.object([
-      #("model", json.string(config.model)),
-      #("max_tokens", json.int(config.max_tokens)),
+      #("model", json.string(model)),
+      #("max_tokens", json.int(max_tokens)),
       #("system", system_value),
       #(
         "messages",
@@ -55,10 +60,7 @@ pub fn send(
     ])
     |> json.to_string
 
-  let headers = [
-    #("anthropic-version", "2023-06-01"),
-    ..auth_headers(config.auth)
-  ]
+  let headers = [#("anthropic-version", "2023-06-01"), ..auth_headers(auth)]
 
   case
     http_post_with_headers(
@@ -68,13 +70,13 @@ pub fn send(
       body,
     )
   {
-    Error(msg) -> Error(RequestError(msg))
+    Error(msg) -> Error(provider.RequestError(msg))
     Ok(#(200, resp_body)) ->
       case json.parse(resp_body, message.decode_response()) {
         Ok(response) -> Ok(response)
-        Error(e) -> Error(DecodeError(json_error_to_string(e)))
+        Error(e) -> Error(provider.DecodeError(json_error_to_string(e)))
       }
-    Ok(#(status, resp_body)) -> Error(HttpError(status, resp_body))
+    Ok(#(status, resp_body)) -> Error(provider.HttpError(status, resp_body))
   }
 }
 

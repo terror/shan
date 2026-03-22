@@ -1,13 +1,13 @@
 import gleam/io
 import gleam/list
-import shan/api.{type Config}
 import shan/message.{
   type Content, type Message, Message, ToolResult, ToolUse, ToolUseStop,
 }
+import shan/provider.{type Provider}
 import shan/tool
 
 pub type AgentError {
-  ApiError(api.ApiError)
+  ApiError(provider.SendError)
   MaxIterations
 }
 
@@ -30,16 +30,16 @@ pub fn default_render() -> Render {
 }
 
 pub fn run(
-  config: Config,
+  provider: Provider,
   messages: List(Message),
   max_iterations: Int,
   render: Render,
 ) -> Result(List(Message), AgentError) {
-  loop(config, messages, max_iterations, 0, render)
+  loop(provider, messages, max_iterations, 0, render)
 }
 
 fn loop(
-  config: Config,
+  provider: Provider,
   messages: List(Message),
   max_iterations: Int,
   iteration: Int,
@@ -48,7 +48,7 @@ fn loop(
   case iteration >= max_iterations {
     True -> Error(MaxIterations)
     False -> {
-      case api.send(config, messages, tool.definitions()) {
+      case provider(messages, tool.definitions()) {
         Error(e) -> Error(ApiError(e))
         Ok(response) -> {
           print_response(response.content, render)
@@ -67,7 +67,7 @@ fn loop(
               let tool_message =
                 Message(role: message.User, content: tool_results)
               let messages = list.append(messages, [tool_message])
-              loop(config, messages, max_iterations, iteration + 1, render)
+              loop(provider, messages, max_iterations, iteration + 1, render)
             }
             _ -> Ok(messages)
           }

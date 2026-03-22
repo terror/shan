@@ -3,11 +3,11 @@ import gleam/io
 import gleam/list
 import gleam/string
 import shan/ansi
-import shan/api.{type Config}
 import shan/loop
 import shan/message.{type Message}
+import shan/provider.{type Provider}
 
-pub fn start(config: Config) -> Nil {
+pub fn start(provider: Provider) -> Nil {
   print_header()
   io.println(
     ansi.dim("  Type a prompt to get started. Type ")
@@ -15,10 +15,10 @@ pub fn start(config: Config) -> Nil {
     <> ansi.dim(" to quit."),
   )
   io.println("")
-  repl(config, [])
+  repl(provider, [])
 }
 
-fn repl(config: Config, messages: List(Message)) -> Nil {
+fn repl(provider: Provider, messages: List(Message)) -> Nil {
   case get_line(ansi.bold_cyan("❯ ")) {
     Error(_) -> {
       io.println("")
@@ -27,19 +27,19 @@ fn repl(config: Config, messages: List(Message)) -> Nil {
     Ok(input) -> {
       let input = string.trim(input)
       case input {
-        "" -> repl(config, messages)
+        "" -> repl(provider, messages)
         "exit" | "quit" -> io.println(ansi.dim("  Goodbye."))
         _ -> {
           io.println("")
           let user_message = message.user(input)
           let messages = list.append(messages, [user_message])
 
-          case loop.run(config, messages, 20, tui_render()) {
+          case loop.run(provider, messages, 20, tui_render()) {
             Ok(updated_messages) -> {
               io.println("")
-              repl(config, updated_messages)
+              repl(provider, updated_messages)
             }
-            Error(loop.ApiError(api.HttpError(status, body))) -> {
+            Error(loop.ApiError(provider.HttpError(status, body))) -> {
               io.println(
                 ansi.red("  error")
                 <> ansi.dim(
@@ -47,22 +47,22 @@ fn repl(config: Config, messages: List(Message)) -> Nil {
                 ),
               )
               io.println("")
-              repl(config, messages)
+              repl(provider, messages)
             }
-            Error(loop.ApiError(api.RequestError(msg))) -> {
+            Error(loop.ApiError(provider.RequestError(msg))) -> {
               io.println(ansi.red("  error") <> ansi.dim(" " <> msg))
               io.println("")
-              repl(config, messages)
+              repl(provider, messages)
             }
-            Error(loop.ApiError(api.DecodeError(msg))) -> {
+            Error(loop.ApiError(provider.DecodeError(msg))) -> {
               io.println(ansi.red("  error") <> ansi.dim(" decode: " <> msg))
               io.println("")
-              repl(config, messages)
+              repl(provider, messages)
             }
             Error(loop.MaxIterations) -> {
               io.println(ansi.yellow("  ⚠ max iterations reached"))
               io.println("")
-              repl(config, messages)
+              repl(provider, messages)
             }
           }
         }
