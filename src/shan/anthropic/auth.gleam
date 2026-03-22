@@ -7,25 +7,52 @@ import gleam/string
 import gleam/uri
 import simplifile
 
+@external(erlang, "shan_ffi", "open_url")
+fn open_url(url: String) -> Nil
+
+@external(erlang, "shan_ffi", "get_home")
+fn get_home() -> Result(String, Nil)
+
+@external(erlang, "shan_ffi", "system_time_seconds")
+fn current_time_seconds() -> Int
+
+pub type Listener
+
+@external(erlang, "shan_ffi", "start_listener")
+fn start_listener(port: Int) -> Result(Listener, String)
+
+@external(erlang, "shan_ffi", "accept_callback")
+fn accept_callback(
+  listener: Listener,
+  timeout_ms: Int,
+) -> Result(#(String, String), String)
+
+@external(erlang, "shan_ffi", "http_post")
+fn http_post(
+  url: String,
+  content_type: String,
+  body: String,
+) -> Result(#(Int, String), String)
+
+const authorize_url = "https://claude.ai/oauth/authorize"
+
+const callback_port = 53_692
+
+const callback_timeout_ms = 120_000
+
 const client_id_encoded = "OWQxYzI1MGEtZTYxYi00NGQ5LTg4ZWQtNTk0NGQxOTYyZjVl"
+
+const redirect_uri = "http://localhost:53692/callback"
+
+const scopes = "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
+
+const token_url = "https://platform.claude.com/v1/oauth/token"
 
 fn client_id() -> String {
   let assert Ok(bits) = bit_array.base64_decode(client_id_encoded)
   let assert Ok(id) = bit_array.to_string(bits)
   id
 }
-
-const authorize_url = "https://claude.ai/oauth/authorize"
-
-const token_url = "https://platform.claude.com/v1/oauth/token"
-
-const redirect_uri = "http://localhost:53692/callback"
-
-const callback_port = 53_692
-
-const callback_timeout_ms = 120_000
-
-const scopes = "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
 
 pub type Credentials {
   Credentials(access_token: String, refresh_token: String, expires_at: Int)
@@ -47,7 +74,7 @@ pub fn login() -> Result(Credentials, AuthError) {
   case start_listener(callback_port) {
     Error(msg) -> Error(TokenError(msg))
     Ok(listener) -> {
-      io.println("Opening browser to authenticate with Claude...")
+      io.println("Opening browser to authenticate...")
       io.println("")
       io.println("If the browser doesn't open, visit this URL:")
       io.println(auth_url)
@@ -246,30 +273,3 @@ fn credentials_path() -> Result(String, Nil) {
     Error(_) -> Error(Nil)
   }
 }
-
-@external(erlang, "shan_ffi", "open_url")
-fn open_url(url: String) -> Nil
-
-@external(erlang, "shan_ffi", "get_home")
-fn get_home() -> Result(String, Nil)
-
-@external(erlang, "shan_ffi", "system_time_seconds")
-fn current_time_seconds() -> Int
-
-pub type Listener
-
-@external(erlang, "shan_ffi", "start_listener")
-fn start_listener(port: Int) -> Result(Listener, String)
-
-@external(erlang, "shan_ffi", "accept_callback")
-fn accept_callback(
-  listener: Listener,
-  timeout_ms: Int,
-) -> Result(#(String, String), String)
-
-@external(erlang, "shan_ffi", "http_post")
-fn http_post(
-  url: String,
-  content_type: String,
-  body: String,
-) -> Result(#(Int, String), String)

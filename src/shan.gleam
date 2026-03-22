@@ -2,29 +2,22 @@ import envoy
 import gleam/int
 import gleam/io
 import shan/anthropic
-import shan/auth
+import shan/anthropic/auth
 import shan/loop
 import shan/message
 import shan/provider
 import shan/tui
 import shellout
 
-pub fn main() -> Nil {
-  ensure_started()
-  case shellout.arguments() {
-    ["login"] -> do_login()
-    ["-p", prompt, ..] | ["--prompt", prompt, ..] -> do_prompt(prompt)
-    [] -> do_tui()
-    _ -> {
-      io.println("usage: shan              interactive mode")
-      io.println("       shan -p <prompt>  one-off prompt")
-      io.println("       shan login        authenticate with Claude")
-      halt(1)
-    }
-  }
-}
+@external(erlang, "shan_ffi", "ensure_started")
+fn ensure_started() -> Nil
 
-fn do_login() -> Nil {
+@external(erlang, "erlang", "halt")
+fn do_halt(status: Int) -> Nil
+
+const system_prompt = "You are a coding agent. You can read files and run bash commands to help the user with software engineering tasks. Be concise."
+
+fn login() -> Nil {
   case auth.login() {
     Ok(_) -> Nil
     Error(auth.IoError) -> io.println("error: failed to read input")
@@ -35,15 +28,9 @@ fn do_login() -> Nil {
   }
 }
 
-const system_prompt = "You are a coding agent. You can read files and run bash commands to help the user with software engineering tasks. Be concise."
-
-fn do_tui() -> Nil {
+fn send_prompt(prompt: String) -> Nil {
   let provider = resolve_provider()
-  tui.start(provider)
-}
 
-fn do_prompt(prompt: String) -> Nil {
-  let provider = resolve_provider()
   let messages = [message.user(prompt)]
 
   case loop.run(provider, messages, 10, loop.default_render()) {
@@ -59,24 +46,27 @@ fn do_prompt(prompt: String) -> Nil {
 }
 
 fn resolve_provider() -> provider.Provider {
-  let auth = resolve_auth()
-  anthropic.provider(
-    auth,
-    "claude-sonnet-4-20250514",
-    16_384,
-    10_000,
-    system_prompt,
-  )
-}
-
-fn resolve_auth() -> anthropic.Auth {
   case envoy.get("ANTHROPIC_API_KEY") {
-    Ok(key) -> anthropic.ApiKey(key)
+    Ok(key) ->
+      anthropic.provider(
+        anthropic.ApiKey(key),
+        "claude-sonnet-4-20250514",
+        16_384,
+        10_000,
+        system_prompt,
+      )
     Error(_) ->
       case auth.load_credentials() {
         Ok(creds) ->
           case auth.ensure_valid(creds) {
-            Ok(valid_creds) -> anthropic.OAuthToken(valid_creds.access_token)
+            Ok(valid_creds) ->
+              anthropic.provider(
+                anthropic.OAuthToken(valid_creds.access_token),
+                "claude-sonnet-4-20250514",
+                16_384,
+                10_000,
+                system_prompt,
+              )
             Error(_) -> {
               io.println("error: token refresh failed — run `shan login` again")
               halt(1)
@@ -84,7 +74,7 @@ fn resolve_auth() -> anthropic.Auth {
           }
         Error(_) -> {
           io.println(
-            "error: no auth configured — set ANTHROPIC_API_KEY or run `shan login`",
+            "error: no API key configured — set ANTHROPIC_API_KEY or run `shan login`",
           )
           halt(1)
         }
@@ -92,13 +82,23 @@ fn resolve_auth() -> anthropic.Auth {
   }
 }
 
-@external(erlang, "shan_ffi", "ensure_started")
-fn ensure_started() -> Nil
-
-@external(erlang, "erlang", "halt")
-fn do_halt(status: Int) -> Nil
-
 fn halt(status: Int) -> a {
   do_halt(status)
   panic as "unreachable"
+}
+
+pub fn main() -> Nil {
+  ensure_started()
+
+  case shellout.arguments() {
+    ["login"] -> login()
+    ["-p", prompt, ..] | ["--prompt", prompt, ..] -> send_prompt(prompt)
+    [] -> tui.start(resolve_provider())
+    _ -> {
+      io.println("usage: shan              interactive mode")
+      io.println("       shan -p <prompt>  one-off prompt")
+      io.println("       shan login        authenticate")
+      halt(1)
+    }
+  }
 }
