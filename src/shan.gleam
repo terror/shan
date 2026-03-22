@@ -5,16 +5,19 @@ import shan/api
 import shan/auth
 import shan/loop
 import shan/message
+import shan/tui
 import shellout
 
 pub fn main() -> Nil {
   ensure_started()
   case shellout.arguments() {
     ["login"] -> do_login()
-    [prompt, ..] -> do_run(prompt)
-    [] -> {
-      io.println("usage: shan login")
-      io.println("       shan <prompt>")
+    ["-p", prompt, ..] | ["--prompt", prompt, ..] -> do_prompt(prompt)
+    [] -> do_tui()
+    _ -> {
+      io.println("usage: shan              interactive mode")
+      io.println("       shan -p <prompt>  one-off prompt")
+      io.println("       shan login        authenticate with Claude")
       halt(1)
     }
   }
@@ -31,7 +34,21 @@ fn do_login() -> Nil {
   }
 }
 
-fn do_run(prompt: String) -> Nil {
+fn do_tui() -> Nil {
+  let auth = resolve_auth()
+
+  let config =
+    api.Config(
+      auth:,
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      system: "You are a coding agent. You can read files and run bash commands to help the user with software engineering tasks. Be concise.",
+    )
+
+  tui.start(config)
+}
+
+fn do_prompt(prompt: String) -> Nil {
   let auth = resolve_auth()
 
   let config =
@@ -44,7 +61,7 @@ fn do_run(prompt: String) -> Nil {
 
   let messages = [message.user(prompt)]
 
-  case loop.run(config, messages, 10) {
+  case loop.run(config, messages, 10, loop.default_render()) {
     Ok(_) -> Nil
     Error(loop.ApiError(api.HttpError(status, body))) ->
       io.println("API error (" <> int.to_string(status) <> "): " <> body)
