@@ -100,17 +100,23 @@ fn tui_render() -> loop.Render {
           }
         _ -> ""
       }
-      io.println(
-        "  " <> ansi.yellow("●") <> " " <> ansi.dim(name <> detail),
-      )
+      io.println("  " <> ansi.yellow("●") <> " " <> ansi.dim(name <> detail))
     },
-    on_tool_done: fn(_name, result) {
+    on_tool_done: fn(name, result) {
       case result.is_error {
         True ->
           io.println(
             "    " <> ansi.red("✗ ") <> ansi.dim(truncate(result.content, 80)),
           )
-        False -> Nil
+        False ->
+          case name {
+            "bash" ->
+              result.content
+              |> truncate_lines(5)
+              |> string.split("\n")
+              |> list.each(fn(line) { io.println("    " <> ansi.dim(line)) })
+            _ -> Nil
+          }
       }
     },
     on_usage: fn(input_tokens, output_tokens) {
@@ -142,6 +148,19 @@ fn print_header() -> Nil {
 fn truncate(text: String, max: Int) -> String {
   case string.length(text) > max {
     True -> string.slice(text, 0, max) <> "…"
+    False -> text
+  }
+}
+
+fn truncate_lines(text: String, max: Int) -> String {
+  let lines = string.split(text, "\n")
+  let total = list.length(lines)
+  case total > max {
+    True ->
+      lines
+      |> list.take(max)
+      |> string.join("\n")
+      |> string.append("\n… " <> int.to_string(total - max) <> " more lines")
     False -> text
   }
 }
