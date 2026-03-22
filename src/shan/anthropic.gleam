@@ -12,10 +12,11 @@ pub fn provider(
   auth: Auth,
   model: String,
   max_tokens: Int,
+  thinking_budget: Int,
   system: String,
 ) -> Provider {
   fn(messages: List(Message), tools: List(json.Json)) {
-    send(auth, model, max_tokens, system, messages, tools)
+    send(auth, model, max_tokens, thinking_budget, system, messages, tools)
   }
 }
 
@@ -23,6 +24,7 @@ fn send(
   auth: Auth,
   model: String,
   max_tokens: Int,
+  thinking_budget: Int,
   system: String,
   messages: List(Message),
   tools: List(json.Json),
@@ -47,17 +49,35 @@ fn send(
     ApiKey(_) -> json.string(system)
   }
 
-  let body =
-    json.object([
-      #("model", json.string(model)),
-      #("max_tokens", json.int(max_tokens)),
-      #("system", system_value),
+  let thinking = case thinking_budget > 0 {
+    True -> [
       #(
-        "messages",
-        json.preprocessed_array(list.map(messages, message.encode_message)),
+        "thinking",
+        json.object([
+          #("type", json.string("enabled")),
+          #("budget_tokens", json.int(thinking_budget)),
+        ]),
       ),
-      #("tools", json.preprocessed_array(tools)),
-    ])
+    ]
+    False -> []
+  }
+
+  let body =
+    json.object(
+      list.flatten([
+        [
+          #("model", json.string(model)),
+          #("max_tokens", json.int(max_tokens)),
+          #("system", system_value),
+          #(
+            "messages",
+            json.preprocessed_array(list.map(messages, message.encode_message)),
+          ),
+          #("tools", json.preprocessed_array(tools)),
+        ],
+        thinking,
+      ]),
+    )
     |> json.to_string
 
   let headers = [#("anthropic-version", "2023-06-01"), ..auth_headers(auth)]

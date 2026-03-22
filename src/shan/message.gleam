@@ -15,6 +15,7 @@ pub type Message {
 
 pub type Content {
   Text(String)
+  Thinking(thinking: String, signature: String)
   ToolUse(id: String, name: String, input: Dict(String, String))
   ToolResult(id: String, content: String, is_error: Bool)
 }
@@ -61,6 +62,12 @@ pub fn encode_content(content: Content) -> json.Json {
         #("type", json.string("text")),
         #("text", json.string(text)),
       ])
+    Thinking(thinking:, signature:) ->
+      json.object([
+        #("type", json.string("thinking")),
+        #("thinking", json.string(thinking)),
+        #("signature", json.string(signature)),
+      ])
     ToolUse(id:, name:, input:) ->
       json.object([
         #("type", json.string("tool_use")),
@@ -92,6 +99,11 @@ fn decode_content() -> decode.Decoder(Content) {
       use text <- decode.field("text", decode.string)
       decode.success(Text(text))
     }
+    "thinking" -> {
+      use thinking <- decode.field("thinking", decode.string)
+      use signature <- decode.field("signature", decode.string)
+      decode.success(Thinking(thinking:, signature:))
+    }
     "tool_use" -> {
       use id <- decode.field("id", decode.string)
       use name <- decode.field("name", decode.string)
@@ -101,7 +113,7 @@ fn decode_content() -> decode.Decoder(Content) {
       )
       decode.success(ToolUse(id:, name:, input:))
     }
-    _ -> decode.failure(Text(""), "text or tool_use")
+    _ -> decode.failure(Text(""), "text, thinking, or tool_use")
   }
 }
 

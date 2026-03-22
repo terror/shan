@@ -60,7 +60,13 @@ fn do_prompt(prompt: String) -> Nil {
 
 fn resolve_provider() -> provider.Provider {
   let auth = resolve_auth()
-  anthropic.provider(auth, "claude-sonnet-4-20250514", 4096, system_prompt)
+  anthropic.provider(
+    auth,
+    "claude-sonnet-4-20250514",
+    16_384,
+    10_000,
+    system_prompt,
+  )
 }
 
 fn resolve_auth() -> anthropic.Auth {

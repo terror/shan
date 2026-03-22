@@ -1,7 +1,8 @@
 import gleam/io
 import gleam/list
 import shan/message.{
-  type Content, type Message, Message, ToolResult, ToolUse, ToolUseStop,
+  type Content, type Message, Message, Thinking, ToolResult, ToolUse,
+  ToolUseStop,
 }
 import shan/provider.{type Provider}
 import shan/tool
@@ -14,6 +15,7 @@ pub type AgentError {
 pub type Render {
   Render(
     on_text: fn(String) -> Nil,
+    on_thinking: fn(String) -> Nil,
     on_tool_start: fn(String) -> Nil,
     on_tool_done: fn(String, tool.ToolResult) -> Nil,
     on_usage: fn(Int, Int) -> Nil,
@@ -23,6 +25,7 @@ pub type Render {
 pub fn default_render() -> Render {
   Render(
     on_text: fn(text) { io.println(text) },
+    on_thinking: fn(text) { io.println("[thinking] " <> text) },
     on_tool_start: fn(name) { io.println("[calling " <> name <> "]") },
     on_tool_done: fn(_name, _result) { Nil },
     on_usage: fn(_in, _out) { Nil },
@@ -96,6 +99,7 @@ fn execute_tools(content: List(Content), render: Render) -> List(Content) {
 fn print_response(content: List(Content), render: Render) {
   list.each(content, fn(c) {
     case c {
+      Thinking(thinking:, ..) -> { render.on_thinking }(thinking)
       message.Text(text) -> { render.on_text }(text)
       _ -> Nil
     }

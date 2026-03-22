@@ -78,6 +78,13 @@ fn tui_render() -> loop.Render {
       |> string.split("\n")
       |> list.each(fn(line) { io.println("  " <> line) })
     },
+    on_thinking: fn(text) {
+      io.println("  " <> ansi.dim("thinking…"))
+      text
+      |> string.split("\n")
+      |> list.each(fn(line) { io.println("  " <> ansi.dim(line)) })
+      io.println("")
+    },
     on_tool_start: fn(name) {
       io.println("  " <> ansi.yellow("●") <> " " <> ansi.dim(name))
     },
