@@ -16,7 +16,7 @@ pub fn get_home() -> Result(String, Nil)
 pub fn get_line(prompt: String) -> Result(String, Nil)
 
 @external(erlang, "erlang", "halt")
-pub fn halt(status: Int) -> Nil
+pub fn halt(status: Int) -> a
 
 @external(erlang, "shan_ffi", "http_post")
 pub fn http_post(

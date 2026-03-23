@@ -5,6 +5,7 @@ import gleam/list
 import gleam/string
 import shan/ansi
 import shan/bridge
+import shan/error
 import shan/loop
 import shan/message.{type Message}
 import shan/provider.{type Provider}
@@ -41,28 +42,10 @@ fn repl(provider: Provider, messages: List(Message)) -> Nil {
               io.println("")
               repl(provider, updated_messages)
             }
-            Error(loop.ApiError(provider.HttpError(status, body))) -> {
+            Error(e) -> {
               io.println(
-                ansi.red("  error")
-                <> ansi.dim(
-                  " API returned " <> int.to_string(status) <> ": " <> body,
-                ),
+                ansi.red("  error") <> ansi.dim(" " <> error.to_string(e)),
               )
-              io.println("")
-              repl(provider, messages)
-            }
-            Error(loop.ApiError(provider.RequestError(msg))) -> {
-              io.println(ansi.red("  error") <> ansi.dim(" " <> msg))
-              io.println("")
-              repl(provider, messages)
-            }
-            Error(loop.ApiError(provider.DecodeError(msg))) -> {
-              io.println(ansi.red("  error") <> ansi.dim(" decode: " <> msg))
-              io.println("")
-              repl(provider, messages)
-            }
-            Error(loop.MaxIterations) -> {
-              io.println(ansi.yellow("  ⚠ max iterations reached"))
               io.println("")
               repl(provider, messages)
             }

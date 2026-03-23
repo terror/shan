@@ -3,9 +3,11 @@ import gleam/crypto
 import gleam/dynamic/decode
 import gleam/io
 import gleam/json
+import gleam/result
 import gleam/string
 import gleam/uri
 import shan/bridge
+import shan/error.{type Error, CredentialError, TokenError}
 import simplifile
 
 const authorize_url = "https://claude.ai/oauth/authorize"
@@ -32,14 +34,7 @@ pub type Credentials {
   Credentials(access_token: String, refresh_token: String, expires_at: Int)
 }
 
-pub type AuthError {
-  IoError
-  HttpError
-  TokenError(String)
-  CredentialError(String)
-}
-
-pub fn login() -> Result(Credentials, AuthError) {
+pub fn login() -> Result(Credentials, Error) {
   let verifier = generate_code_verifier()
   let challenge = generate_code_challenge(verifier)
 
@@ -80,26 +75,32 @@ pub fn login() -> Result(Credentials, AuthError) {
   }
 }
 
-pub fn load_credentials() -> Result(Credentials, AuthError) {
-  case credentials_path() {
-    Error(_) -> Error(CredentialError("could not determine home directory"))
-    Ok(path) ->
-      case simplifile.read(path) {
-        Error(_) ->
-          Error(CredentialError("no credentials found — run `shan login` first"))
-        Ok(contents) ->
-          case json.parse(contents, decode_credentials()) {
-            Ok(creds) -> Ok(creds)
-            Error(_) ->
-              Error(CredentialError(
-                "corrupt credentials file — run `shan login` again",
-              ))
-          }
-      }
-  }
+pub fn load_credentials() -> Result(Credentials, Error) {
+  use path <- result.try(
+    credentials_path()
+    |> result.replace_error(CredentialError(
+      "could not determine home directory",
+    )),
+  )
+
+  use contents <- result.try(
+    simplifile.read(path)
+    |> result.replace_error(CredentialError(
+      "no credentials found — run `shan login` first",
+    )),
+  )
+
+  use creds <- result.try(
+    json.parse(contents, decode_credentials())
+    |> result.replace_error(CredentialError(
+      "corrupt credentials file — run `shan login` again",
+    )),
+  )
+
+  ensure_valid(creds)
 }
 
-pub fn refresh(creds: Credentials) -> Result(Credentials, AuthError) {
+pub fn refresh(creds: Credentials) -> Result(Credentials, Error) {
   let body =
     json.object([
       #("grant_type", json.string("refresh_token")),
@@ -126,9 +127,11 @@ pub fn refresh(creds: Credentials) -> Result(Credentials, AuthError) {
   }
 }
 
-pub fn ensure_valid(creds: Credentials) -> Result(Credentials, AuthError) {
+fn ensure_valid(creds: Credentials) -> Result(Credentials, Error) {
   let now = bridge.system_time_seconds()
+
   let buffer = 300
+
   case now >= creds.expires_at - buffer {
     False -> Ok(creds)
     True -> refresh(creds)
@@ -160,10 +163,7 @@ fn build_authorize_url(challenge: String, state: String) -> String {
   authorize_url <> "?" <> query
 }
 
-fn exchange_code(
-  code: String,
-  verifier: String,
-) -> Result(Credentials, AuthError) {
+fn exchange_code(code: String, verifier: String) -> Result(Credentials, Error) {
   let body =
     json.object([
       #("grant_type", json.string("authorization_code")),
@@ -207,7 +207,7 @@ fn decode_credentials() -> decode.Decoder(Credentials) {
   decode.success(Credentials(access_token:, refresh_token:, expires_at:))
 }
 
-fn save_credentials(creds: Credentials) -> Result(Nil, AuthError) {
+fn save_credentials(creds: Credentials) -> Result(Nil, Error) {
   case credentials_dir() {
     Error(_) -> Error(CredentialError("could not determine home directory"))
     Ok(dir) -> {

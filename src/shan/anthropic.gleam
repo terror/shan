@@ -2,6 +2,7 @@ import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import shan/bridge
+import shan/error.{DecodeError, HttpError, RequestError}
 import shan/message.{
   type Content, type Message, type Response, type StopReason, type Usage,
   EndTurn, MaxTokens, Response, Text, Thinking, ToolResult, ToolUse, ToolUseStop,
@@ -34,7 +35,7 @@ fn send(
   system: String,
   messages: List(Message),
   tools: List(json.Json),
-) -> Result(Response, provider.SendError) {
+) -> Result(Response, error.Error) {
   let system_value = case auth {
     OAuthToken(_) ->
       json.preprocessed_array([
@@ -96,13 +97,13 @@ fn send(
       body,
     )
   {
-    Error(msg) -> Error(provider.RequestError(msg))
+    Error(msg) -> Error(RequestError(msg))
     Ok(#(200, resp_body)) ->
       case json.parse(resp_body, decode_response()) {
         Ok(response) -> Ok(response)
-        Error(e) -> Error(provider.DecodeError(json_error_to_string(e)))
+        Error(e) -> Error(DecodeError(json_error_to_string(e)))
       }
-    Ok(#(status, resp_body)) -> Error(provider.HttpError(status, resp_body))
+    Ok(#(status, resp_body)) -> Error(HttpError(status, resp_body))
   }
 }
 

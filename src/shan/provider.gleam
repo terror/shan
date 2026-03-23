@@ -1,11 +1,6 @@
 import gleam/json
+import shan/error.{type Error}
 import shan/message.{type Message, type Response}
 
-pub type SendError {
-  RequestError(String)
-  HttpError(status: Int, body: String)
-  DecodeError(String)
-}
-
 pub type Provider =
-  fn(List(Message), List(json.Json)) -> Result(Response, SendError)
+  fn(List(Message), List(json.Json)) -> Result(Response, Error)

@@ -1,17 +1,13 @@
 import gleam/dict.{type Dict}
 import gleam/io
 import gleam/list
+import shan/error.{type Error, MaxIterations}
 import shan/message.{
   type Content, type Message, Message, Thinking, ToolResult, ToolUse,
   ToolUseStop,
 }
 import shan/provider.{type Provider}
 import shan/tool
-
-pub type AgentError {
-  ApiError(provider.SendError)
-  MaxIterations
-}
 
 pub type Render {
   Render(
@@ -38,7 +34,7 @@ pub fn run(
   messages: List(Message),
   max_iterations: Int,
   render: Render,
-) -> Result(List(Message), AgentError) {
+) -> Result(List(Message), Error) {
   loop(provider, messages, max_iterations, 0, render)
 }
 
@@ -48,12 +44,12 @@ fn loop(
   max_iterations: Int,
   iteration: Int,
   render: Render,
-) -> Result(List(Message), AgentError) {
+) -> Result(List(Message), Error) {
   case iteration >= max_iterations {
     True -> Error(MaxIterations)
     False -> {
       case provider(messages, tool.definitions()) {
-        Error(e) -> Error(ApiError(e))
+        Error(e) -> Error(e)
         Ok(response) -> {
           print_response(response.content, render)
           { render.on_usage }(
