@@ -3,17 +3,12 @@ import gleam/int
 import gleam/io
 import shan/anthropic
 import shan/anthropic/auth
+import shan/bridge
 import shan/loop
 import shan/message
 import shan/provider
 import shan/tui
 import shellout
-
-@external(erlang, "shan_ffi", "ensure_started")
-fn ensure_started() -> Nil
-
-@external(erlang, "erlang", "halt")
-fn do_halt(status: Int) -> Nil
 
 const system_prompt = "You are a coding agent. You can read files and run bash commands to help the user with software engineering tasks. Be concise."
 
@@ -83,12 +78,12 @@ fn resolve_provider() -> provider.Provider {
 }
 
 fn halt(status: Int) -> a {
-  do_halt(status)
+  bridge.halt(status)
   panic as "unreachable"
 }
 
 pub fn main() -> Nil {
-  ensure_started()
+  bridge.ensure_started()
 
   case shellout.arguments() {
     ["login"] -> login()

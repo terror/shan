@@ -4,6 +4,7 @@ import gleam/io
 import gleam/list
 import gleam/string
 import shan/ansi
+import shan/bridge
 import shan/loop
 import shan/message.{type Message}
 import shan/provider.{type Provider}
@@ -20,7 +21,7 @@ pub fn start(provider: Provider) -> Nil {
 }
 
 fn repl(provider: Provider, messages: List(Message)) -> Nil {
-  case get_line(ansi.bold_cyan("❯ ")) {
+  case bridge.get_line(ansi.bold_cyan("❯ ")) {
     Error(_) -> {
       io.println("")
       io.println(ansi.dim("  Goodbye."))
@@ -158,6 +159,3 @@ fn truncate_lines(text: String, max: Int) -> String {
     False -> text
   }
 }
-
-@external(erlang, "shan_ffi", "get_line")
-fn get_line(prompt: String) -> Result(String, Nil)

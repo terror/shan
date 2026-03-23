@@ -1,6 +1,7 @@
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
+import shan/bridge
 import shan/message.{
   type Content, type Message, type Response, type StopReason, type Usage,
   EndTurn, MaxTokens, Response, Text, Thinking, ToolResult, ToolUse, ToolUseStop,
@@ -88,7 +89,7 @@ fn send(
   let headers = [#("anthropic-version", "2023-06-01"), ..auth_headers(auth)]
 
   case
-    http_post_with_headers(
+    bridge.http_post_with_headers(
       "https://api.anthropic.com/v1/messages",
       headers,
       "application/json",
@@ -214,11 +215,3 @@ fn json_error_to_string(error: json.DecodeError) -> String {
     json.UnableToDecode(_) -> "unable to decode"
   }
 }
-
-@external(erlang, "shan_ffi", "http_post_with_headers")
-fn http_post_with_headers(
-  url: String,
-  headers: List(#(String, String)),
-  content_type: String,
-  body: String,
-) -> Result(#(Int, String), String)

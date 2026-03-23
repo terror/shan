@@ -5,34 +5,8 @@ import gleam/io
 import gleam/json
 import gleam/string
 import gleam/uri
+import shan/bridge
 import simplifile
-
-@external(erlang, "shan_ffi", "open_url")
-fn open_url(url: String) -> Nil
-
-@external(erlang, "shan_ffi", "get_home")
-fn get_home() -> Result(String, Nil)
-
-@external(erlang, "shan_ffi", "system_time_seconds")
-fn current_time_seconds() -> Int
-
-pub type Listener
-
-@external(erlang, "shan_ffi", "start_listener")
-fn start_listener(port: Int) -> Result(Listener, String)
-
-@external(erlang, "shan_ffi", "accept_callback")
-fn accept_callback(
-  listener: Listener,
-  timeout_ms: Int,
-) -> Result(#(String, String), String)
-
-@external(erlang, "shan_ffi", "http_post")
-fn http_post(
-  url: String,
-  content_type: String,
-  body: String,
-) -> Result(#(Int, String), String)
 
 const authorize_url = "https://claude.ai/oauth/authorize"
 
@@ -71,7 +45,7 @@ pub fn login() -> Result(Credentials, AuthError) {
 
   let auth_url = build_authorize_url(challenge, verifier)
 
-  case start_listener(callback_port) {
+  case bridge.start_listener(callback_port) {
     Error(msg) -> Error(TokenError(msg))
     Ok(listener) -> {
       io.println("Opening browser to authenticate...")
@@ -81,9 +55,9 @@ pub fn login() -> Result(Credentials, AuthError) {
       io.println("")
       io.println("Waiting for authentication...")
 
-      open_url(auth_url)
+      bridge.open_url(auth_url)
 
-      case accept_callback(listener, callback_timeout_ms) {
+      case bridge.accept_callback(listener, callback_timeout_ms) {
         Error(msg) -> Error(TokenError(msg))
         Ok(#(code, callback_state)) ->
           case callback_state == verifier {
@@ -134,7 +108,7 @@ pub fn refresh(creds: Credentials) -> Result(Credentials, AuthError) {
     ])
     |> json.to_string
 
-  case http_post(token_url, "application/json", body) {
+  case bridge.http_post(token_url, "application/json", body) {
     Error(msg) -> Error(TokenError("token refresh failed: " <> msg))
     Ok(#(200, resp_body)) ->
       case json.parse(resp_body, decode_token_response()) {
@@ -153,7 +127,7 @@ pub fn refresh(creds: Credentials) -> Result(Credentials, AuthError) {
 }
 
 pub fn ensure_valid(creds: Credentials) -> Result(Credentials, AuthError) {
-  let now = current_time_seconds()
+  let now = bridge.system_time_seconds()
   let buffer = 300
   case now >= creds.expires_at - buffer {
     False -> Ok(creds)
@@ -201,7 +175,7 @@ fn exchange_code(
     ])
     |> json.to_string
 
-  case http_post(token_url, "application/json", body) {
+  case bridge.http_post(token_url, "application/json", body) {
     Error(msg) -> Error(TokenError("token exchange failed: " <> msg))
     Ok(#(200, resp_body)) ->
       case json.parse(resp_body, decode_token_response()) {
@@ -222,7 +196,7 @@ fn decode_token_response() -> decode.Decoder(Credentials) {
   use access_token <- decode.field("access_token", decode.string)
   use refresh_token <- decode.field("refresh_token", decode.string)
   use expires_in <- decode.field("expires_in", decode.int)
-  let expires_at = current_time_seconds() + expires_in
+  let expires_at = bridge.system_time_seconds() + expires_in
   decode.success(Credentials(access_token:, refresh_token:, expires_at:))
 }
 
@@ -261,7 +235,7 @@ fn save_credentials(creds: Credentials) -> Result(Nil, AuthError) {
 }
 
 fn credentials_dir() -> Result(String, Nil) {
-  case get_home() {
+  case bridge.get_home() {
     Ok(home) -> Ok(home <> "/.config/shan")
     Error(_) -> Error(Nil)
   }
